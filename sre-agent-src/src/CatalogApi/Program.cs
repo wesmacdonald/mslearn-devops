@@ -69,6 +69,9 @@ app.MapGet("/", () =>
         ul { padding-left: 1.25rem; }
         code { background: #f2f2f2; padding: .15rem .35rem; border-radius: 4px; }
         .card { max-width: 760px; border: 1px solid #ddd; border-radius: 10px; padding: 1rem 1.25rem; }
+        .products { display: grid; gap: .75rem; margin-top: 1rem; }
+        .product { border: 1px solid #ddd; border-radius: 8px; padding: .75rem 1rem; }
+        .badge { background: #b42318; border-radius: 4px; color: white; padding: .2rem .45rem; }
     </style>
 </head>
 <body>
@@ -87,7 +90,61 @@ app.MapGet("/", () =>
             <li><code>POST /products</code></li>
             <li><code>POST /orders</code></li>
         </ul>
+        <h2>Products</h2>
+        <label><input id="hide-out-of-stock" type="checkbox" /> Hide out-of-stock items</label>
+        <p id="products-status" role="status"></p>
+        <div id="products" class="products"></div>
     </div>
+    <script>
+        const productsContainer = document.getElementById("products");
+        const productsStatus = document.getElementById("products-status");
+        const hideOutOfStock = document.getElementById("hide-out-of-stock");
+
+        async function loadProducts() {
+            productsStatus.textContent = "Loading products…";
+            productsContainer.replaceChildren();
+
+            try {
+                const query = hideOutOfStock.checked ? "?hideOutOfStock=true" : "";
+                const response = await fetch(`/products${query}`);
+                if (!response.ok) throw new Error("Unable to load products.");
+
+                const products = await response.json();
+                productsStatus.textContent = products.length ? "" : "No products found.";
+
+                for (const product of products) {
+                    const card = document.createElement("article");
+                    card.className = "product";
+
+                    const name = document.createElement("h3");
+                    name.textContent = product.name;
+                    card.append(name);
+
+                    const description = document.createElement("p");
+                    description.textContent = product.description;
+                    card.append(description);
+
+                    const price = document.createElement("p");
+                    price.textContent = `$${Number(product.price).toFixed(2)}`;
+                    card.append(price);
+
+                    if (product.stock <= 0) {
+                        const badge = document.createElement("span");
+                        badge.className = "badge";
+                        badge.textContent = "Out of Stock";
+                        card.append(badge);
+                    }
+
+                    productsContainer.append(card);
+                }
+            } catch {
+                productsStatus.textContent = "Products could not be loaded.";
+            }
+        }
+
+        hideOutOfStock.addEventListener("change", loadProducts);
+        loadProducts();
+    </script>
 </body>
 </html>
 """;
@@ -104,11 +161,13 @@ app.MapGet("/health", async (CosmosDbService db) =>
         : Results.Json(new { status = "unhealthy", timestamp = DateTime.UtcNow }, statusCode: 503);
 });
 
-// GET /products — list all products
-app.MapGet("/products", async (CosmosDbService db) =>
+// GET /products — list products with available items first
+app.MapGet("/products", async (CosmosDbService db, bool hideOutOfStock = false) =>
 {
     var products = await db.GetProductsAsync();
-    return Results.Ok(products);
+    return Results.Ok(products
+        .Where(product => !hideOutOfStock || product.Stock > 0)
+        .OrderByDescending(product => product.Stock > 0));
 });
 
 // GET /products/{id} — get a single product by id
