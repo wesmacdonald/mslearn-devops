@@ -110,6 +110,25 @@
       ]
     },
     {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('resourceToken')), 'catalogdb', 'orders')]",
+      "properties": {
+        "resource": {
+          "id": "orders",
+          "partitionKey": {
+            "paths": [
+              "/customerId"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('cosmos-{0}', parameters('resourceToken')), 'catalogdb')]"
+      ]
+    },
+    {
       "type": "Microsoft.Web/serverfarms",
       "apiVersion": "2023-12-01",
       "name": "[format('plan-{0}', parameters('resourceToken'))]",
