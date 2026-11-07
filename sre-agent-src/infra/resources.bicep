@@ -66,6 +66,20 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
   }
 }
 
+// The app's managed identity has Cosmos DB Built-in Data Contributor, which cannot
+// create containers over AAD (403 / substatus 5300). Every container the app uses
+// must therefore be provisioned here. Partition key must match CosmosDbService.cs.
+resource cosmosOrdersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
+  parent: cosmosDatabase
+  name: 'orders'
+  properties: {
+    resource: {
+      id: 'orders'
+      partitionKey: { paths: ['/customerId'], kind: 'Hash' }
+    }
+  }
+}
+
 // ===== App Service =====
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
